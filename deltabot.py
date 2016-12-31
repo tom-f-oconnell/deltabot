@@ -11,8 +11,8 @@ alpha = 2 * np.pi / 3.0 # radians
 alpha_offset = np.pi / 2.0
 
 # radius from center of base to x, y position of motor joint
-rm = 10 # mm
-upper_arm_length = 20 # mm
+rm = 50 # mm
+upper_arm_length = 40 # mm
 
 # motor rotor angles (radians), from x-y plane
 # motor A will be defined as at pi degrees
@@ -43,9 +43,58 @@ elbow_z_C = upper_arm_length * np.sin(thetaC)
 # there will (always?) be two real intersections of these three spheres
 # and the intersection below the motor mount is the one of interest
 
-lower_arm_length = 100 # mm
+lower_arm_length = 170 # mm
 
 # Cartesian coordinates of end effector's center
-effector_cx = 
-effector_cy = 
-effector_cz = 
+# using equations described on the Wikipedia article for trilateration
+# see also page 16-17 of my blue notebook from Michael's rotation
+
+# the centers of our spheres
+a = np.array((elbow_x_A, elbow_y_A, elbow_z_A))
+b = np.array((elbow_x_B, elbow_y_B, elbow_z_B))
+c = np.array((elbow_x_C, elbow_y_C, elbow_z_C))
+
+# first put the sphere centers in a coordinate system with all 3 coplanar in z=0 (x-y)
+# one at the x-y origin, and one along the x-axis
+
+# make the new (unit) basis vectors (e_)
+dx = b - a
+ex = dx / np.linalg.norm(dx)
+i = np.dot(ex, c - a)
+dy = c - a - i*ex
+ey = dy / np.linalg.norm(dy)
+ez = np.cross(ex, ey)
+
+# quantities in the diagram on the Wikipedia page
+d = np.linalg.norm(b - a)
+j = np.dot(ey, c - a)
+
+# for convenience
+r = lower_arm_length
+
+# the assumptions guaranteeing non-zero, finite intersections
+assert d < 2*r, 'spheres are disjoint'
+assert d > 0, 'spheres have same origin'
+
+# arm length (sphere radius) actually cancels out of most of these 
+# because all of r1,r2,and r3 and the same
+x = d**2 / (2*d)
+y = (i**2 + j**2 + x*i) / (2*j)
+
+discriminant = r**2 - x**2 - y**2
+# TODO is this always right? safe after above check?
+assert discriminant >= 0, 'no real roots => spheres seem not to intersect'
+z = np.sqrt(discriminant)
+
+# position of the center of the end effector (?) (assuming symmetric)
+# in the original coordinate system
+# TODO not assuming all ball joints overlap, is it?
+effector = a + x*ex + y*ey + z*ez
+print(effector)
+
+# TODO is it really only possible for end effector to be parallel to base (and thus ground)?
+# if not, visualize z differences
+
+# TODO TODO TODO why are x and y different distance from origin (which should be center of
+# motor mount), despite supposed symmetry about motor base center?
+
