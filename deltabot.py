@@ -7,14 +7,33 @@ import seaborn as sns
 verbose = False
 should_plot = False
 
-sns.set_style('dark')
+if should_plot:
+    sns.set_style('dark')
+
+    plt.close('all')
 
 # mostly following terminology in team "Delta Force" senior project, from Columbia
 # (x,y) = (0,0) is defined as the center of the base the motors are symmetrically
 # attached to
 
-def forward_kinematics(thetaA, thetaB, thetaC, alpha=None, alpha_offset=None, \
-        rm=50, upper_arm_length=40, lower_arm_length=170):
+# default delta robot parameters
+dp = {'alpha': 2 * np.pi / 3.0,
+      'alpha_offset': np.pi / 2.0,
+      'rm': 50,
+      'upper_arm_length': 40,
+      'lower_arm_length': 170}
+
+# TODO this sphere intersection business seems to think the arms are actually touching
+# how is this usually handled? just a simple little geometric correction?
+# the intersection is probably not centered over the effector center sometimes?
+# TODO TODO TODO this might be what they meant by virtually shifting stuff?
+# if i just move each sphere the distance from the ball joint on the effector to the
+# center of the effector, will that intersection be the center?
+# (do it from where the elbows are, i think)
+
+def forward_kinematics(thetaA, thetaB, thetaC, alpha=dp['alpha'], alpha_offset=dp['alpha_offset'], \
+        rm=dp['rm'],upper_arm_length=dp['upper_arm_length'],lower_arm_length=dp['lower_arm_length']):
+    
     """ Takes 3 motor angles and outputs the Cartesian coordinates of the end effector,
         with the point between the three motors as the origin.
 
@@ -25,11 +44,6 @@ def forward_kinematics(thetaA, thetaB, thetaC, alpha=None, alpha_offset=None, \
         rm (mm) - radius from center of base to x, y position of motor joint
         upper_arm_length (mm) - connecting motor to lower arm
         lower_arm_length (mm) - connecting upper arm to effector """
-
-    if alpha == None:
-        alpha = 2 * np.pi / 3.0 # radians
-    if alpha_offset == None:
-        alpha_offset = np.pi / 2.0
 
     # TODO draw out. visualize? TODO
     # motor joint = "shoulder"
@@ -134,16 +148,17 @@ def forward_kinematics(thetaA, thetaB, thetaC, alpha=None, alpha_offset=None, \
     if show_temp_basis:
         ax = plt.gca()
         arrow_scale = 40
+        head_scale = 0.005
         # TODO labels dont seem to work on these
         ax.arrow(0, 0, ex[0]*arrow_scale, ex[1]*arrow_scale, \
-                label='ex', color='r', width=arrow_scale*0.005)
+                label='ex', color='r', width=arrow_scale * head_scale)
 
         ax.arrow(0, 0, ey[0]*arrow_scale, ey[1]*arrow_scale, \
-                label='ey', color='g', width=arrow_scale*0.005)
+                label='ey', color='g', width=arrow_scale * head_scale)
 
         # basically has a zero projection on plotted plane, as expected
         ax.arrow(0, 0, ez[0]*arrow_scale, ez[1]*arrow_scale, \
-                label='ez', color='b', width=arrow_scale*0.005)
+                label='ez', color='b', width=arrow_scale * head_scale)
 
     # position of the center of the end effector (?) (assuming symmetric)
     # in the original coordinate system
@@ -161,6 +176,36 @@ def forward_kinematics(thetaA, thetaB, thetaC, alpha=None, alpha_offset=None, \
         plt.show()
 
     return effector
+
+# TODO use this to test forward and vice versa (though this isn't unique?)
+def inverse_kinematics(x, y, z, alpha=dp['alpha'], alpha_offset=dp['alpha_offset'], \
+        rm=dp['rm'],upper_arm_length=dp['upper_arm_length'],lower_arm_length=dp['lower_arm_length']):
+
+    """ Takes desired Cartesian coordinates of the end effector's center, and outputs
+        motor angles that can acheive that pose. 
+        
+        Based on the geometric approach from the same senior project. """
+
+    # i need a sphere coming from each corner of the effector
+    # that i can intersect with either a circle directly, or a plane to get a circle,
+    # that i will then intersect with the above circle
+    ''' equations:
+    r^2 = (x-x0)^2 + (y-y0)^2 + (z-z0)^2
+    
+    '''
+    rl = lower_arm_length
+
+    # i need that circle coming from the shoulder joint
+    # law of sines
+    shoulderA = [np.sin(alpha_offset)*rm, np.sin((np.pi/2.0) - alpha_offset)*rm]
+    shoulderB = [np.sin(alpha_offset + alpha)*rm, np.sin((np.pi/2.0) - alpha_offset + alpha)*rm]
+    shoulderC = [np.sin(alpha_offset + 2*alpha)*rm, np.sin((np.pi/2.0) - alpha_offset + 2*alpha)*rm]
+
+    # the circles should be about an axis tangent to a circle centered between the motors
+
+    # the points of the intersection defines the angles for that motor
+
+    return None
 
 # TODO is it really only possible for end effector to be parallel to base (and thus ground)?
 # if not, visualize z differences
